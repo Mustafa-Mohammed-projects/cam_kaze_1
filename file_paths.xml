@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    This file must be placed at: <project>/src/main/res/xml/file_paths.xml
+    When using buildozer, it's instead delivered via the post-build hook
+    (see buildozer_hooks.py and buildozer.spec).
+
+    - cache-path name="captures": matches cache_dir()/captures used in
+      camera_screen.py for the raw temp photo before encryption.
+    - cache-path name="shared": matches cache_dir()/shared used in
+      gallery_screen.py and share_utils.py to view/share photos after
+      temporarily decrypting them.
+
+    Note: we use cache-path exclusively (not external-path) because every
+    temp file stays inside the app's private space and needs no storage
+    permission.
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="captures" path="captures/" />
+    <cache-path name="shared" path="shared/" />
+</paths>
