@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Signed Release APK
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,9 +20,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      # buildozer/p4a need system tools (autotools, java, zip...) that
-      # aren't installed by default on the runner. This list matches the
-      # official buildozer documentation's recommendations for Ubuntu 22.04.
+      # أدوات النظام المطلوبة لـ buildozer/p4a على Ubuntu 22.04
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -30,7 +29,9 @@ jobs:
             python3-pip autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
-            build-essential ccache
+            build-essential ccache lzip gawk \
+            libgdbm-dev libnss3-dev libreadline-dev \
+            libsqlite3-dev tk-dev libgdbm-compat-dev libc6-dev-i386
 
       - name: Set JAVA_HOME
         run: echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
@@ -38,26 +39,48 @@ jobs:
       - name: Install buildozer and Cython
         run: |
           pip install --upgrade pip
-          pip install "buildozer==1.5.0" "cython==0.29.36"
+          pip install "buildozer==1.5.0" "cython==0.29.36" virtualenv
 
-      # Caches SDK/NDK/built packages between runs to significantly speed up builds.
+      # كاش لتسريع البناء بين التشغيلات
       - name: Cache buildozer global + local dirs
         uses: actions/cache@v4
         with:
           path: |
             ~/.buildozer
             .buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-release-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
+            buildozer-release-${{ runner.os }}-
             buildozer-${{ runner.os }}-
 
-      - name: Build APK (debug)
+      # ⚠️ مهم: استخدم GitHub Secrets بدل كلمات المرور المكتوبة مباشرة
+      - name: Create Keystore
         run: |
-          yes | buildozer -v android debug
+          keytool -genkey -v -keystore release.keystore \
+            -alias "${{ secrets.KEY_ALIAS }}" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=${{ secrets.KEY_CN }}, OU=Dev, O=MyCompany, L=Khartoum, ST=Khartoum, C=SD" \
+            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -keypass "${{ secrets.KEY_PASSWORD }}"
 
-      # Explicitly inject FileProvider after the build to guarantee it works
-      # regardless of p4a.hook support in the buildozer version used (see
-      # buildozer_hooks.py).
+      - name: Inject Keystore Config into buildozer.spec
+        run: |
+          sed -i "s|.*android.keystore\s*=.*|android.keystore = ${{ github.workspace }}/release.keystore|" buildozer.spec
+          sed -i "s|.*android.keystore_passwd\s*=.*|android.keystore_passwd = ${{ secrets.KEYSTORE_PASSWORD }}|" buildozer.spec
+          sed -i "s|.*android.keyalias\s*=.*|android.keyalias = ${{ secrets.KEY_ALIAS }}|" buildozer.spec
+          sed -i "s|.*android.keyalias_passwd\s*=.*|android.keyalias_passwd = ${{ secrets.KEY_PASSWORD }}|" buildozer.spec
+
+      # بناء نسخة release موقّعة
+      - name: Build APK (release, signed)
+        run: |
+          yes | buildozer -v android release
+        env:
+          P4A_RELEASE_KEYSTORE: ${{ github.workspace }}/release.keystore
+          P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.KEYSTORE_PASSWORD }}
+          P4A_RELEASE_KEYALIAS: ${{ secrets.KEY_ALIAS }}
+          P4A_RELEASE_KEYALIAS_PASSWD: ${{ secrets.KEY_PASSWORD }}
+
+      # حقن FileProvider بعد البناء (شبكة أمان)
       - name: Inject FileProvider into generated manifest (safety net)
         run: |
           DIST_DIR=$(find .buildozer -maxdepth 4 -type d -name "dists" | head -n1)
@@ -67,19 +90,26 @@ jobs:
               python buildozer_hooks.py "$d" || true
             done
           else
-            echo "No dists directory found; skipping (p4a hook may have handled it already)."
+            echo "No dists directory found; skipping."
           fi
 
-      - name: Locate APK
+      - name: Locate APK/AAB
         id: apk
         run: |
+          echo "--- Contents of bin/ ---"
+          ls -R bin/ || echo "bin/ is empty"
           APK_PATH=$(find bin -name "*.apk" | head -n1)
-          echo "APK at: $APK_PATH"
-          echo "path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          AAB_PATH=$(find bin -name "*.aab" | head -n1)
+          echo "APK: $APK_PATH"
+          echo "AAB: $AAB_PATH"
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "aab_path=$AAB_PATH" >> "$GITHUB_OUTPUT"
 
-      - name: Upload APK artifact
+      - name: Upload Signed APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SecureCameraKivy-debug-apk
-          path: bin/*.apk
+          name: SecureCameraKivy-release-apk
+          path: |
+            bin/*.apk
+            bin/*.aab
           if-no-files-found: error
