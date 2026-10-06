@@ -91,3 +91,9 @@ warn_on_root = 1
 
 [app:android.gradle_dependencies]
 androidx.core:core:1.13.1
+
+android.release_artifact = apk
+android.keystore =
+android.keystore_passwd =
+android.keyalias =
+android.keyalias_passwd =
