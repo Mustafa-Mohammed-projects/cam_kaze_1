@@ -57,36 +57,32 @@ jobs:
       - name: Create Keystore
         run: |
           keytool -genkey -v -keystore release.keystore \
-            -alias "${{ secrets.KEY_ALIAS }}" \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=${{ secrets.KEY_CN }}, OU=Dev, O=MyCompany, L=Khartoum, ST=Khartoum, C=SD" \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            -keypass "${{ secrets.KEY_PASSWORD }}"
+            -alias camkazeq_alias -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=camkaze, OU=Dev, O=MyCompany, L=Khartoum, ST=Khartoum, C=SD" \
+            -storepass mypassword123 -keypass mypassword123
 
-      - name: Inject Keystore Config into buildozer.spec
+      - name: Inject Absolute Keystore Path into Buildozer Spec
         run: |
-          sed -i "s|.*android.keystore\s*=.*|android.keystore = ${{ github.workspace }}/release.keystore|" buildozer.spec
-          sed -i "s|.*android.keystore_passwd\s*=.*|android.keystore_passwd = ${{ secrets.KEYSTORE_PASSWORD }}|" buildozer.spec
-          sed -i "s|.*android.keyalias\s*=.*|android.keyalias = ${{ secrets.KEY_ALIAS }}|" buildozer.spec
-          sed -i "s|.*android.keyalias_passwd\s*=.*|android.keyalias_passwd = ${{ secrets.KEY_PASSWORD }}|" buildozer.spec
-
+          sed -i 's|.*android.keystore\s*=.*|android.keystore = ${{ github.workspace }}/release.keystore|' buildozer.spec
+          sed -i 's|.*android.keystore_passwd\s*=.*|android.keystore_passwd = mypassword123|' buildozer.spec
+          sed -i 's|.*android.keyalias\s*=.*|android.keyalias = camkaze_alias|' buildozer.spec
+          sed -i 's|.*android.keyalias_passwd\s*=.*|android.keyalias_passwd = mypassword123|' buildozer.spec
       # بناء نسخة release موقّعة
       - name: Build APK (release, signed)
         run: |
           yes | buildozer -v android release
-        env:
+         env:
           P4A_RELEASE_KEYSTORE: ${{ github.workspace }}/release.keystore
-          P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.KEYSTORE_PASSWORD }}
-          P4A_RELEASE_KEYALIAS: ${{ secrets.KEY_ALIAS }}
-          P4A_RELEASE_KEYALIAS_PASSWD: ${{ secrets.KEY_PASSWORD }}
-
+          P4A_RELEASE_KEYSTORE_PASSWD: mypassword123
+          P4A_RELEASE_KEYALIAS: kazemusic_alias
+          P4A_RELEASE_KEYALIAS_PASSWD: mypassword123
       # حقن FileProvider بعد البناء (شبكة أمان)
       - name: Inject FileProvider into generated manifest (safety net)
         run: |
           DIST_DIR=$(find .buildozer -maxdepth 4 -type d -name "dists" | head -n1)
           if [ -n "$DIST_DIR" ]; then
             for d in "$DIST_DIR"/*; do
-              echo "Patching dist: $d"
+              echo "Patching dist: $d" 
               python buildozer_hooks.py "$d" || true
             done
           else
