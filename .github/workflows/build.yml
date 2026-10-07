@@ -57,7 +57,7 @@ jobs:
       - name: Create Keystore
         run: |
           keytool -genkey -v -keystore release.keystore \
-            -alias camkazeq_alias -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias camkaze_alias -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=camkaze, OU=Dev, O=MyCompany, L=Khartoum, ST=Khartoum, C=SD" \
             -storepass mypassword123 -keypass mypassword123
 
@@ -74,7 +74,7 @@ jobs:
         env:
           P4A_RELEASE_KEYSTORE: ${{ github.workspace }}/release.keystore
           P4A_RELEASE_KEYSTORE_PASSWD: mypassword123
-          P4A_RELEASE_KEYALIAS: kazemusic_alias
+          P4A_RELEASE_KEYALIAS: camkaze_alias
           P4A_RELEASE_KEYALIAS_PASSWD: mypassword123
       # حقن FileProvider بعد البناء (شبكة أمان)
       - name: Inject FileProvider into generated manifest (safety net)
