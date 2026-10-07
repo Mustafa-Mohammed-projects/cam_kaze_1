@@ -18,13 +18,17 @@ version = 0.1.0
 # ---------------------------------------------------------------------------
 # Compatibility notes (important):
 #  - pyjnius, android: core p4a tooling, built locally for each architecture.
-#  - cryptography: needs a dedicated p4a recipe (bundled by default:
-#    recipes/cryptography) and depends on openssl, which is also built as a
-#    recipe (pulled in automatically as a dependency).
+#  - cryptography: not needed by this app, and newer Python-for-Android toolchains
+#    can fail to resolve Android wheels for it when the default Python target is too new.
 #  - We use the system camera via an Intent rather than the camera4kivy
 #    library, so it isn't required here. If you later want a live camera
 #    preview embedded in the app, add: camera4kivy
-requirements = python3,kivy==2.3.1,pyjnius,android,cryptography,openssl,pillow
+#
+# Force a supported Android Python version. Newer p4a toolchains default to 3.14,
+# which currently breaks wheel resolution for packages like cryptography and
+# charset_normalizer during android release builds.
+python.version = 3.11
+requirements = python3,kivy==2.3.1,pyjnius,android,pillow
 
 # ---------------------------------------------------------------------------
 # Permissions (Android 13+)
